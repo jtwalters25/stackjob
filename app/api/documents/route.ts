@@ -8,6 +8,16 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
 
+  // Verify the job belongs to this user before attaching documents (IDOR prevention)
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("id")
+    .eq("id", body.job_id)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 });
+
   const { data, error } = await supabase
     .from("documents")
     .insert({

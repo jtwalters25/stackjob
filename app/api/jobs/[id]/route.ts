@@ -39,9 +39,18 @@ export async function PATCH(
   const { id } = params;
   const body = await request.json();
 
+  // Allowlist prevents mass assignment — only permit known editable fields
+  const ALLOWED_FIELDS = [
+    "stage", "job_type", "customer_name", "building_name",
+    "address", "notes", "has_prints", "has_proposal", "has_parts_list",
+  ];
+  const updates = Object.fromEntries(
+    Object.entries(body).filter(([key]) => ALLOWED_FIELDS.includes(key))
+  );
+
   const { data, error } = await supabase
     .from("jobs")
-    .update({ ...body, updated_at: new Date().toISOString() })
+    .update({ ...updates, updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("user_id", user.id)
     .select()

@@ -12,6 +12,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "job_id and content required" }, { status: 400 });
   }
 
+  // Verify the job belongs to this user before attaching notes (IDOR prevention)
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("id")
+    .eq("id", body.job_id)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 });
+
   const { data, error } = await supabase
     .from("voice_notes")
     .insert({ job_id: body.job_id, content: body.content })
