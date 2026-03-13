@@ -1,21 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { Job, JobStage } from "@/lib/supabase";
+import { Job, JobStage, getCriticalDocs, getDocFlags, TRADE_DOC_FLAGS } from "@/lib/supabase";
 import { STAGE_COLORS } from "./StageSelect";
 
 interface JobCardProps {
   job: Job;
 }
 
+const DOC_LABELS: Record<string, string> = Object.values(TRADE_DOC_FLAGS)
+  .flat()
+  .reduce((acc, { key, label }) => ({ ...acc, [key]: label }), {});
+
 export default function JobCard({ job }: JobCardProps) {
-  const missingDocs: string[] = [];
-  if (!job.has_prints) missingDocs.push("Prints");
-  if (!job.has_proposal) missingDocs.push("Proposal");
+  const criticalKeys = getCriticalDocs(job.trade ?? "General");
+  const missingDocs = criticalKeys
+    .filter((key) => !job[key])
+    .map((key) => getDocFlags(job.trade ?? "General").find((f) => f.key === key)?.label ?? key);
 
   const showWarning =
-    ["Scheduled", "In Progress"].includes(job.stage) &&
-    missingDocs.length > 0;
+    ["Scheduled", "In Progress"].includes(job.stage) && missingDocs.length > 0;
 
   return (
     <Link href={`/jobs/${job.id}`}>
@@ -36,36 +40,32 @@ export default function JobCard({ job }: JobCardProps) {
               </p>
             )}
           </div>
-          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
             <span
-              className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${STAGE_COLORS[job.stage as JobStage]}`}
+              className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${STAGE_COLORS[job.stage as JobStage] ?? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"}`}
             >
               {job.stage}
             </span>
-            {job.job_type && (
-              <span className="text-xs text-gray-400 dark:text-gray-500">{job.job_type}</span>
-            )}
+            <div className="flex items-center gap-1.5">
+              {job.trade && job.trade !== "General" && (
+                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                  {job.trade}
+                </span>
+              )}
+              {job.job_type && (
+                <span className="text-xs text-gray-400 dark:text-gray-500">{job.job_type}</span>
+              )}
+            </div>
           </div>
         </div>
 
         {showWarning && (
           <div className="mt-3 flex items-center gap-1.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-1.5">
-            <svg
-              className="w-4 h-4 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            <span className="text-xs font-medium">
-              Missing: {missingDocs.join(", ")}
-            </span>
+            <span className="text-xs font-medium">Missing: {missingDocs.join(", ")}</span>
           </div>
         )}
       </div>

@@ -10,9 +10,11 @@ import {
   Document,
   VoiceNote,
   JobStage,
-  STAGE_CHECKLISTS,
-  JOB_TYPES,
-  JobType,
+  STAGES,
+  TRADES,
+  TRADE_JOB_TYPES,
+  getDocFlags,
+  getCriticalDocs,
 } from "@/lib/supabase";
 
 const FILE_TYPE_LABELS: Record<string, string> = {
@@ -40,6 +42,7 @@ export default function JobDetailPage() {
   const [job, setJob] = useState<Job | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [notes, setNotes] = useState<VoiceNote[]>([]);
+  const [checklist, setChecklist] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [newNote, setNewNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
@@ -56,6 +59,7 @@ export default function JobDetailPage() {
         setJob(data.job);
         setDocuments(data.documents ?? []);
         setNotes(data.notes ?? []);
+        setChecklist(data.checklist ?? []);
         setAddressInput(data.job?.address ?? "");
         setLoading(false);
       })
@@ -74,12 +78,29 @@ export default function JobDetailPage() {
     }
   };
 
-  const handleStageChange = (stage: JobStage) => {
+  const handleStageChange = async (stage: JobStage) => {
     setJob((j) => (j ? { ...j, stage } : j));
-    updateJob({ stage });
+    await updateJob({ stage });
+    // Refresh checklist for new stage
+    const res = await fetch(`/api/jobs/${id}`);
+    if (res.ok) {
+      const data = await res.json();
+      setChecklist(data.checklist ?? []);
+      setCheckedItems(new Set()); // reset checks on stage change
+    }
   };
 
-  const handleJobTypeChange = (job_type: JobType) => {
+  const handleTradeChange = async (trade: string) => {
+    setJob((j) => (j ? { ...j, trade } : j));
+    await updateJob({ trade });
+    const res = await fetch(`/api/jobs/${id}`);
+    if (res.ok) {
+      const data = await res.json();
+      setChecklist(data.checklist ?? []);
+    }
+  };
+
+  const handleJobTypeChange = (job_type: string) => {
     setJob((j) => (j ? { ...j, job_type } : j));
     updateJob({ job_type });
   };
@@ -107,9 +128,12 @@ export default function JobDetailPage() {
 
   const handleNavigate = () => {
     if (!job) return;
-    const missing: string[] = [];
-    if (!job.has_prints) missing.push("Prints");
-    if (!job.has_proposal) missing.push("Proposal");
+    const criticalKeys = getCriticalDocs(job.trade ?? "General");
+    const docFlags = getDocFlags(job.trade ?? "General");
+    const missing = criticalKeys
+      .filter((key) => !job[key])
+      .map((key) => docFlags.find((f) => f.key === key)?.label ?? key);
+
     if (missing.length > 0) {
       setShowNavWarning(true);
     } else {
@@ -158,14 +182,17 @@ export default function JobDetailPage() {
     );
   }
 
-  const checklist = STAGE_CHECKLISTS[job.stage] ?? [];
-  const missingDocs: string[] = [];
-  if (!job.has_prints) missingDocs.push("Prints");
-  if (!job.has_proposal) missingDocs.push("Proposal");
+  const trade = job.trade ?? "General";
+  const docFlags = getDocFlags(trade);
+  const criticalKeys = getCriticalDocs(trade);
+  const missingDocs = criticalKeys
+    .filter((key) => !job[key])
+    .map((key) => docFlags.find((f) => f.key === key)?.label ?? key);
+  const jobTypes = TRADE_JOB_TYPES[trade] ?? TRADE_JOB_TYPES.General;
 
   return (
     <div className="max-w-6xl mx-auto px-4 pb-28">
-      {/* Page header — sticky below Nav */}
+      {/* Sticky page header */}
       <div className="sticky top-14 z-10 bg-slate-50 dark:bg-gray-950 pt-4 pb-3 border-b border-gray-100 dark:border-gray-800 mb-6">
         <div className="flex items-center gap-3 mb-3">
           <Link
@@ -185,16 +212,26 @@ export default function JobDetailPage() {
             )}
           </div>
         </div>
-        {/* Stage + Type row */}
-        <div className="flex gap-2">
-          <StageSelect value={job.stage} onChange={handleStageChange} className="flex-1 min-w-0" />
+
+        {/* Stage / Trade / Job Type row */}
+        <div className="flex gap-2 flex-wrap">
+          <StageSelect value={job.stage} onChange={handleStageChange} className="flex-1 min-w-[130px]" />
+          <select
+            value={trade}
+            onChange={(e) => handleTradeChange(e.target.value)}
+            className="flex-1 min-w-[120px] rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px] bg-white dark:bg-gray-900"
+          >
+            {TRADES.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
           <select
             value={job.job_type ?? ""}
-            onChange={(e) => handleJobTypeChange(e.target.value as JobType)}
-            className="flex-1 min-w-0 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px] bg-white dark:bg-gray-900"
+            onChange={(e) => handleJobTypeChange(e.target.value)}
+            className="flex-1 min-w-[130px] rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px] bg-white dark:bg-gray-900"
           >
             <option value="">Job type...</option>
-            {JOB_TYPES.map((t) => (
+            {jobTypes.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
@@ -204,7 +241,7 @@ export default function JobDetailPage() {
       {/* Two-column layout on large screens */}
       <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-6">
 
-        {/* LEFT COLUMN */}
+        {/* LEFT */}
         <div className="space-y-4">
           {/* Missing docs warning */}
           {missingDocs.length > 0 && (
@@ -260,17 +297,11 @@ export default function JobDetailPage() {
             )}
           </div>
 
-          {/* Document flags */}
+          {/* Document flags — trade-driven */}
           <div className={card}>
             <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Documents</h2>
             <div className="grid grid-cols-3 gap-2 mb-3">
-              {(
-                [
-                  { key: "has_prints", label: "Prints" },
-                  { key: "has_proposal", label: "Proposal" },
-                  { key: "has_parts_list", label: "Parts List" },
-                ] as { key: keyof Job; label: string }[]
-              ).map(({ key, label }) => (
+              {docFlags.map(({ key, label }) => (
                 <button
                   key={key}
                   onClick={() => updateJob({ [key]: !job[key] })}
@@ -312,9 +343,9 @@ export default function JobDetailPage() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN */}
+        {/* RIGHT */}
         <div className="space-y-4 mt-4 lg:mt-0">
-          {/* Stage checklist */}
+          {/* Stage checklist — from DB */}
           {checklist.length > 0 && (
             <div className={card}>
               <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
@@ -327,13 +358,9 @@ export default function JobDetailPage() {
                     onClick={() => toggleCheck(item)}
                     className="flex items-center gap-3 w-full text-left min-h-[44px] hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg px-2 transition-colors"
                   >
-                    <div
-                      className={`w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                        checkedItems.has(item)
-                          ? "border-green-500 bg-green-500"
-                          : "border-gray-300 dark:border-gray-600"
-                      }`}
-                    >
+                    <div className={`w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                      checkedItems.has(item) ? "border-green-500 bg-green-500" : "border-gray-300 dark:border-gray-600"
+                    }`}>
                       {checkedItems.has(item) && (
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />

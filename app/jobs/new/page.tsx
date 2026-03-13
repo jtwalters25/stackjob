@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { STAGES, JOB_TYPES, JobStage, JobType } from "@/lib/supabase";
+import { STAGES, TRADES, TRADE_JOB_TYPES, JobStage } from "@/lib/supabase";
 
 export default function NewJobPage() {
   const router = useRouter();
@@ -12,15 +12,29 @@ export default function NewJobPage() {
     customer_name: "",
     building_name: "",
     address: "",
-    job_type: "" as JobType | "",
+    trade: "General",
+    job_type: "",
     stage: "Lead" as JobStage,
     has_prints: false,
     has_proposal: false,
     has_parts_list: false,
+    has_permit: false,
   });
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Pre-fill trade from user profile
+  useEffect(() => {
+    fetch("/api/profile")
+      .then((r) => r.json())
+      .then((p) => {
+        if (p?.trade) setForm((f) => ({ ...f, trade: p.trade }));
+      })
+      .catch(() => {});
+  }, []);
+
+  const jobTypes = TRADE_JOB_TYPES[form.trade] ?? TRADE_JOB_TYPES.General;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +67,8 @@ export default function NewJobPage() {
     }
   };
 
-  const inputClass = "w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const inputClass =
+    "w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500";
   const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5";
 
   return (
@@ -102,16 +117,14 @@ export default function NewJobPage() {
               className={inputClass}
             />
           </div>
-
           <div>
-            <label className={labelClass}>Job Type</label>
+            <label className={labelClass}>Trade</label>
             <select
-              value={form.job_type}
-              onChange={(e) => setForm((f) => ({ ...f, job_type: e.target.value as JobType | "" }))}
+              value={form.trade}
+              onChange={(e) => setForm((f) => ({ ...f, trade: e.target.value, job_type: "" }))}
               className={`${inputClass} min-h-[48px]`}
             >
-              <option value="">Select type...</option>
-              {JOB_TYPES.map((t) => (
+              {TRADES.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
@@ -129,29 +142,43 @@ export default function NewJobPage() {
           />
         </div>
 
-        <div>
-          <label className={labelClass}>Stage</label>
-          <select
-            value={form.stage}
-            onChange={(e) => setForm((f) => ({ ...f, stage: e.target.value as JobStage }))}
-            className={`${inputClass} min-h-[48px]`}
-          >
-            {STAGES.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label className={labelClass}>Job Type</label>
+            <select
+              value={form.job_type}
+              onChange={(e) => setForm((f) => ({ ...f, job_type: e.target.value }))}
+              className={`${inputClass} min-h-[48px]`}
+            >
+              <option value="">Select type...</option>
+              {jobTypes.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Stage</label>
+            <select
+              value={form.stage}
+              onChange={(e) => setForm((f) => ({ ...f, stage: e.target.value as JobStage }))}
+              className={`${inputClass} min-h-[48px]`}
+            >
+              {STAGES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div>
           <p className={labelClass}>Documents on Hand</p>
-          <div className="grid grid-cols-3 gap-2">
-            {(
-              [
-                { key: "has_prints", label: "Prints" },
-                { key: "has_proposal", label: "Proposal" },
-                { key: "has_parts_list", label: "Parts List" },
-              ] as { key: "has_prints" | "has_proposal" | "has_parts_list"; label: string }[]
-            ).map(({ key, label }) => (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { key: "has_prints" as const, label: "Prints" },
+              { key: "has_proposal" as const, label: "Proposal" },
+              { key: "has_parts_list" as const, label: "Materials" },
+              { key: "has_permit" as const, label: "Permit" },
+            ].map(({ key, label }) => (
               <button
                 type="button"
                 key={key}

@@ -21,10 +21,19 @@ export async function GET(
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
 
+  // Fetch trade+stage specific checklist from DB
+  const { data: checklistData } = await supabase
+    .from("checklist_templates")
+    .select("items")
+    .eq("trade", jobResult.data.trade ?? "General")
+    .eq("stage", jobResult.data.stage)
+    .single();
+
   return NextResponse.json({
     job: jobResult.data,
     documents: docsResult.data ?? [],
     notes: notesResult.data ?? [],
+    checklist: checklistData?.items ?? [],
   });
 }
 
@@ -39,10 +48,9 @@ export async function PATCH(
   const { id } = params;
   const body = await request.json();
 
-  // Allowlist prevents mass assignment — only permit known editable fields
   const ALLOWED_FIELDS = [
-    "stage", "job_type", "customer_name", "building_name",
-    "address", "notes", "has_prints", "has_proposal", "has_parts_list",
+    "stage", "job_type", "trade", "customer_name", "building_name",
+    "address", "notes", "has_prints", "has_proposal", "has_parts_list", "has_permit",
   ];
   const updates = Object.fromEntries(
     Object.entries(body).filter(([key]) => ALLOWED_FIELDS.includes(key))

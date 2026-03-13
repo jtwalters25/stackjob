@@ -31,9 +31,11 @@ export async function POST(request: NextRequest) {
       address: body.address || null,
       job_type: body.job_type || null,
       stage: body.stage || "Lead",
+      trade: body.trade || "General",
       has_prints: body.has_prints ?? false,
       has_proposal: body.has_proposal ?? false,
       has_parts_list: body.has_parts_list ?? false,
+      has_permit: body.has_permit ?? false,
       notes: body.notes || null,
       user_id: user.id,
     })

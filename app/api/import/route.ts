@@ -15,7 +15,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No files provided" }, { status: 400 });
     }
 
-    const parsed = await parseFolderStructure(files);
+    // Get the user's default trade to inform Claude's parsing
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("trade")
+      .eq("id", user.id)
+      .single();
+
+    const tradeHint = profile?.trade ?? "General";
+    const parsed = await parseFolderStructure(files, tradeHint);
 
     if (!parsed.jobs || parsed.jobs.length === 0) {
       return NextResponse.json({ error: "No jobs found in folder structure" }, { status: 422 });
@@ -33,10 +41,12 @@ export async function POST(request: NextRequest) {
           customer_name: parsedJob.customer_name,
           building_name: parsedJob.building_name || null,
           job_type: parsedJob.job_type || null,
+          trade: parsedJob.trade || tradeHint,
           stage: "Lead",
           has_prints: hasPrints,
           has_proposal: hasProposal,
           has_parts_list: false,
+          has_permit: false,
           user_id: user.id,
         })
         .select()
