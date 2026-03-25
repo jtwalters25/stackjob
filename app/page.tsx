@@ -39,7 +39,7 @@ export default function HomePage() {
     if (stored) {
       try {
         setCustomOrder(JSON.parse(stored));
-      } catch (e) {
+      } catch {
         // Ignore parse errors
       }
     }

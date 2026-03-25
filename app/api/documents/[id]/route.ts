@@ -31,7 +31,8 @@ export async function GET(
   }
 
   // Verify the user owns the job this document belongs to
-  if ((document as any).jobs.user_id !== user.id) {
+  const doc = document as typeof document & { jobs: { user_id: string } };
+  if (doc.jobs.user_id !== user.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

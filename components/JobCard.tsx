@@ -1,16 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Job, JobStage, getCriticalDocs, getDocFlags, TRADE_DOC_FLAGS } from "@/lib/supabase";
+import { Job, JobStage, getCriticalDocs, getDocFlags } from "@/lib/supabase";
 import { STAGE_COLORS } from "./StageSelect";
 
 interface JobCardProps {
   job: Job;
 }
-
-const DOC_LABELS: Record<string, string> = Object.values(TRADE_DOC_FLAGS)
-  .flat()
-  .reduce((acc, { key, label }) => ({ ...acc, [key]: label }), {});
 
 export default function JobCard({ job }: JobCardProps) {
   const criticalKeys = getCriticalDocs(job.trade ?? "General");

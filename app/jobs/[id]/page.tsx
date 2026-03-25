@@ -10,7 +10,6 @@ import {
   Document,
   VoiceNote,
   JobStage,
-  STAGES,
   TRADES,
   TRADE_JOB_TYPES,
   getDocFlags,
