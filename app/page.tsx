@@ -5,6 +5,24 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import JobCard from "@/components/JobCard";
 import { Job, STAGE_GROUPS } from "@/lib/supabase";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { SortableJobCard } from "@/components/SortableJobCard";
+
+type SortMode = "default" | "date-newest" | "date-oldest" | "manual";
 
 export default function HomePage() {
   const router = useRouter();
@@ -12,6 +30,36 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [loadingDemo, setLoadingDemo] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>("default");
+  const [customOrder, setCustomOrder] = useState<Record<string, string[]>>({});
+
+  // Load custom order from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("jobCustomOrder");
+    if (stored) {
+      try {
+        setCustomOrder(JSON.parse(stored));
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+    const storedSortMode = localStorage.getItem("jobSortMode") as SortMode;
+    if (storedSortMode) {
+      setSortMode(storedSortMode);
+    }
+  }, []);
+
+  // Save custom order to localStorage
+  useEffect(() => {
+    if (Object.keys(customOrder).length > 0) {
+      localStorage.setItem("jobCustomOrder", JSON.stringify(customOrder));
+    }
+  }, [customOrder]);
+
+  // Save sort mode to localStorage
+  useEffect(() => {
+    localStorage.setItem("jobSortMode", sortMode);
+  }, [sortMode]);
 
   useEffect(() => {
     fetch("/api/jobs")
@@ -23,6 +71,13 @@ export default function HomePage() {
       .catch(() => setLoading(false));
   }, []);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   const handleLoadDemo = async () => {
     setLoadingDemo(true);
     try {
@@ -33,6 +88,52 @@ export default function HomePage() {
       setJobs(Array.isArray(updated) ? updated : []);
     } finally {
       setLoadingDemo(false);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent, group: string) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const groupJobs = grouped[group as keyof typeof grouped];
+      const oldIndex = groupJobs.findIndex((job) => job.id === active.id);
+      const newIndex = groupJobs.findIndex((job) => job.id === over.id);
+
+      const newOrder = arrayMove(groupJobs, oldIndex, newIndex);
+      setCustomOrder({
+        ...customOrder,
+        [group]: newOrder.map((job) => job.id),
+      });
+
+      // Switch to manual mode when dragging
+      if (sortMode !== "manual") {
+        setSortMode("manual");
+      }
+    }
+  };
+
+  const sortJobs = (jobsList: Job[], group: string): Job[] => {
+    switch (sortMode) {
+      case "date-newest":
+        return [...jobsList].sort(
+          (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        );
+      case "date-oldest":
+        return [...jobsList].sort(
+          (a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
+        );
+      case "manual":
+        if (customOrder[group]) {
+          const orderMap = new Map(customOrder[group].map((id, idx) => [id, idx]));
+          return [...jobsList].sort((a, b) => {
+            const aIdx = orderMap.get(a.id) ?? 999999;
+            const bIdx = orderMap.get(b.id) ?? 999999;
+            return aIdx - bIdx;
+          });
+        }
+        return jobsList;
+      default:
+        return jobsList;
     }
   };
 
@@ -157,15 +258,30 @@ export default function HomePage() {
             </svg>
           </Link>
         </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-          {filtered.length} of {jobs.length} job{jobs.length !== 1 ? "s" : ""}
-        </p>
+        <div className="flex items-center justify-between mt-3">
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            {filtered.length} of {jobs.length} job{jobs.length !== 1 ? "s" : ""}
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500 dark:text-gray-400">Sort:</span>
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value as SortMode)}
+              className="text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="default">Default</option>
+              <option value="date-newest">Date (Newest)</option>
+              <option value="date-oldest">Date (Oldest)</option>
+              <option value="manual">Manual (Drag & Drop)</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Job groups */}
       <div className="space-y-8">
         {(["Active", "Pending", "Complete"] as const).map((group) => {
-          const groupJobs = grouped[group];
+          const groupJobs = sortJobs(grouped[group], group);
           if (groupJobs.length === 0) return null;
           const cfg = groupConfig[group];
 
@@ -180,11 +296,30 @@ export default function HomePage() {
                   {groupJobs.length} job{groupJobs.length !== 1 ? "s" : ""}
                 </span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                {groupJobs.map((job) => (
-                  <JobCard key={job.id} job={job} />
-                ))}
-              </div>
+              {sortMode === "manual" ? (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event) => handleDragEnd(event, group)}
+                >
+                  <SortableContext
+                    items={groupJobs.map((job) => job.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {groupJobs.map((job) => (
+                        <SortableJobCard key={job.id} job={job} />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {groupJobs.map((job) => (
+                    <JobCard key={job.id} job={job} />
+                  ))}
+                </div>
+              )}
             </section>
           );
         })}
