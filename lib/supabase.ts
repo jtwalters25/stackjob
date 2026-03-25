@@ -158,6 +158,23 @@ export function getCriticalDocs(trade: string): DocFlagKey[] {
   return TRADE_CRITICAL_DOCS[trade] ?? TRADE_CRITICAL_DOCS.General;
 }
 
+// ─── Role types ──────────────────────────────────────────────────────────────
+
+export type JobRole =
+  | "Prime Contractor"
+  | "Subcontractor"
+  | "Self-Perform"
+  | "Consultant"
+  | "Helper";
+
+export const JOB_ROLES: JobRole[] = [
+  "Prime Contractor",
+  "Subcontractor",
+  "Self-Perform",
+  "Consultant",
+  "Helper",
+];
+
 // ─── DB interfaces ────────────────────────────────────────────────────────────
 
 export type FileType = "print" | "proposal" | "photo" | "work_order" | "other";
@@ -170,6 +187,7 @@ export interface Job {
   job_type: string | null;
   stage: JobStage;
   trade: string;
+  role: JobRole | null;
   has_prints: boolean;
   has_proposal: boolean;
   has_parts_list: boolean;

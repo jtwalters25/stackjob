@@ -10,8 +10,10 @@ import {
   Document,
   VoiceNote,
   JobStage,
+  JobRole,
   TRADES,
   TRADE_JOB_TYPES,
+  JOB_ROLES,
   getDocFlags,
   getCriticalDocs,
 } from "@/lib/supabase";
@@ -104,6 +106,11 @@ export default function JobDetailPage() {
   const handleJobTypeChange = (job_type: string) => {
     setJob((j) => (j ? { ...j, job_type } : j));
     updateJob({ job_type });
+  };
+
+  const handleRoleChange = (role: JobRole) => {
+    setJob((j) => (j ? { ...j, role } : j));
+    updateJob({ role });
   };
 
   const handleSaveAddress = async () => {
@@ -253,7 +260,7 @@ export default function JobDetailPage() {
           </div>
         </div>
 
-        {/* Stage / Trade / Job Type row */}
+        {/* Stage / Trade / Job Type / Role row */}
         <div className="flex gap-2 flex-wrap">
           <StageSelect value={job.stage} onChange={handleStageChange} className="flex-1 min-w-[130px]" />
           <select
@@ -273,6 +280,16 @@ export default function JobDetailPage() {
             <option value="">Job type...</option>
             {jobTypes.map((t) => (
               <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <select
+            value={job.role ?? ""}
+            onChange={(e) => handleRoleChange(e.target.value as JobRole)}
+            className="flex-1 min-w-[130px] rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px] bg-white dark:bg-gray-900"
+          >
+            <option value="">Your role...</option>
+            {JOB_ROLES.map((r) => (
+              <option key={r} value={r}>{r}</option>
             ))}
           </select>
         </div>

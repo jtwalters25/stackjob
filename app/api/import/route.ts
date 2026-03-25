@@ -34,6 +34,10 @@ export async function POST(request: NextRequest) {
     for (const parsedJob of parsed.jobs) {
       const hasPrints = parsedJob.documents.some((d) => d.file_type === "print");
       const hasProposal = parsedJob.documents.some((d) => d.file_type === "proposal");
+      const jobTrade = parsedJob.trade || tradeHint;
+
+      // Auto-set role: Self-Perform if trade matches user's primary trade, otherwise Prime Contractor
+      const role = jobTrade === tradeHint ? "Self-Perform" : "Prime Contractor";
 
       const { data: job, error: jobError } = await supabase
         .from("jobs")
@@ -41,7 +45,8 @@ export async function POST(request: NextRequest) {
           customer_name: parsedJob.customer_name,
           building_name: parsedJob.building_name || null,
           job_type: parsedJob.job_type || null,
-          trade: parsedJob.trade || tradeHint,
+          trade: jobTrade,
+          role,
           stage: "Lead",
           has_prints: hasPrints,
           has_proposal: hasProposal,

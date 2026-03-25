@@ -23,6 +23,20 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
 
+  // Get user's primary trade to auto-set role
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("trade")
+    .eq("id", user.id)
+    .single();
+
+  const userPrimaryTrade = profile?.trade || "General";
+  const jobTrade = body.trade || "General";
+
+  // Auto-set role: Self-Perform if trade matches, otherwise Prime Contractor
+  // Allow override if role is explicitly provided
+  const role = body.role || (jobTrade === userPrimaryTrade ? "Self-Perform" : "Prime Contractor");
+
   const { data, error } = await supabase
     .from("jobs")
     .insert({
@@ -31,7 +45,8 @@ export async function POST(request: NextRequest) {
       address: body.address || null,
       job_type: body.job_type || null,
       stage: body.stage || "Lead",
-      trade: body.trade || "General",
+      trade: jobTrade,
+      role,
       has_prints: body.has_prints ?? false,
       has_proposal: body.has_proposal ?? false,
       has_parts_list: body.has_parts_list ?? false,

@@ -28,6 +28,7 @@ CREATE TABLE jobs (
   address TEXT,
   job_type TEXT,
   trade TEXT DEFAULT 'General',
+  role TEXT CHECK (role IN ('Prime Contractor', 'Subcontractor', 'Self-Perform', 'Consultant', 'Helper')),
   stage TEXT DEFAULT 'Lead' CHECK (stage IN ('Lead', 'Site Visit', 'Proposal Sent', 'Won', 'Scheduled', 'In Progress', 'Complete')),
   has_prints BOOLEAN DEFAULT FALSE,
   has_proposal BOOLEAN DEFAULT FALSE,
@@ -156,9 +157,11 @@ Desktop/
 | Feature | How |
 |---------|-----|
 | AI folder import | `/onboard` → select folder → Claude parses structure |
-| Job list | Home page grouped by Active/Pending/Complete with search |
-| Job detail | Stage dropdown, doc toggles, checklist, notes |
-| Navigate | Fixed button → warns if missing prints/proposal → Google Maps |
+| Job list | Home page grouped by Active/Pending/Complete with search & sorting |
+| Job detail | Stage, trade, job type, role selectors + doc toggles, checklist, notes |
+| Role tracking | Auto-set based on trade match: "Self-Perform" or "Prime Contractor" |
+| Navigate | Fixed button → warns if missing critical docs → Google Maps |
+| Document upload | Upload files to Supabase Storage, view via signed URLs |
 | Manual entry | `/jobs/new` form |
 
 ## Stage Flow
