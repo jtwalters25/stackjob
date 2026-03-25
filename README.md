@@ -1,6 +1,8 @@
 # StackJob
 
-Elevator contractor job management app. Import messy desktop job folders via Claude AI → track jobs from lead to completion.
+Trade contractor job management app. Import messy desktop job folders via Claude AI → track jobs from lead to completion.
+
+Works for any trade: Electrician, Plumber, HVAC, Roofing, General Contractor, Carpenter, Painter, Elevator, and more.
 
 ## Setup
 
@@ -24,12 +26,15 @@ CREATE TABLE jobs (
   customer_name TEXT NOT NULL,
   building_name TEXT,
   address TEXT,
-  job_type TEXT CHECK (job_type IN ('Modernization', 'Repair', 'Install', 'Maintenance')),
+  job_type TEXT,
+  trade TEXT DEFAULT 'General',
   stage TEXT DEFAULT 'Lead' CHECK (stage IN ('Lead', 'Site Visit', 'Proposal Sent', 'Won', 'Scheduled', 'In Progress', 'Complete')),
   has_prints BOOLEAN DEFAULT FALSE,
   has_proposal BOOLEAN DEFAULT FALSE,
   has_parts_list BOOLEAN DEFAULT FALSE,
+  has_permit BOOLEAN DEFAULT FALSE,
   notes TEXT,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT now(),
   updated_at TIMESTAMP DEFAULT now()
 );
@@ -51,13 +56,30 @@ CREATE TABLE voice_notes (
   created_at TIMESTAMP DEFAULT now()
 );
 
+CREATE TABLE profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  trade TEXT DEFAULT 'General',
+  company_name TEXT
+);
+
+-- Enable Row Level Security
 ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE voice_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow all" ON jobs FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all" ON documents FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all" ON voice_notes FOR ALL USING (true) WITH CHECK (true);
+-- RLS Policies
+CREATE POLICY "Users can manage their own jobs" ON jobs
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can manage their own documents" ON documents
+  FOR ALL USING (auth.uid() IN (SELECT user_id FROM jobs WHERE id = job_id));
+
+CREATE POLICY "Users can manage their own notes" ON voice_notes
+  FOR ALL USING (auth.uid() IN (SELECT user_id FROM jobs WHERE id = job_id));
+
+CREATE POLICY "Users can manage their own profile" ON profiles
+  FOR ALL USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 ```
 
 ### 3. Get an Anthropic API key
@@ -95,20 +117,20 @@ Open [http://localhost:3000](http://localhost:3000).
 ```
 Desktop/
 └── MyJobs/
-    ├── Smith_Tower_Modernization/
-    │   ├── Smith_Tower_prints.pdf
-    │   ├── Smith_Tower_proposal.pdf
+    ├── Smith_Residence_Kitchen_Renovation/
+    │   ├── kitchen_drawings.pdf
+    │   ├── proposal_final.pdf
     │   └── site_visit_photo.jpg
-    ├── Johnson_Building_Repair/
+    ├── Johnson_Building_HVAC_Repair/
     │   ├── work_order_2024.pdf
     │   └── repair_estimate.pdf
-    ├── Downtown_Hotel_Install/
-    │   ├── hotel_prints_rev2.pdf
+    ├── Downtown_Hotel_Electrical/
+    │   ├── panel_upgrade_drawings.pdf
     │   └── bid_proposal.pdf
-    ├── Riverside_Apartments_Maintenance/
-    │   └── PM_checklist.pdf
-    └── Harbor_Office_Modernization/
-        ├── drawings_final.dwg
+    ├── Riverside_Apartments_Plumbing/
+    │   └── repipe_estimate.pdf
+    └── Harbor_Office_Painting/
+        ├── color_samples.pdf
         └── quote_v3.pdf
 ```
 
@@ -125,7 +147,7 @@ Desktop/
 - All 5 folders should appear as separate jobs
 - `has_prints: true` on jobs with "prints" or "drawings" files
 - `has_proposal: true` on jobs with "proposal", "quote", or "bid" files
-- Job types inferred: Modernization, Repair, Install, Maintenance
+- Trade and job types auto-detected from folder/file names
 
 ---
 

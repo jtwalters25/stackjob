@@ -3,8 +3,8 @@ import "./globals.css";
 import Nav from "@/components/Nav";
 
 export const metadata: Metadata = {
-  title: "StackJob - Elevator Job Management",
-  description: "Manage elevator contractor jobs from import to completion",
+  title: "StackJob - Trade Job Management",
+  description: "Manage contractor jobs from import to completion. Works for any trade: Electrician, Plumber, HVAC, Roofing, and more.",
 };
 
 export const viewport: Viewport = {
