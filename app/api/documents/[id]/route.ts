@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
-import { readFile } from "fs/promises";
-import { join, normalize } from "path";
-import { existsSync } from "fs";
 
 export async function GET(
   request: NextRequest,
@@ -37,53 +34,20 @@ export async function GET(
   }
 
   try {
-    // Normalize the path to prevent directory traversal
-    const normalizedPath = normalize(document.file_path);
+    // Get signed URL from Supabase Storage
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      .from("job-documents")
+      .createSignedUrl(document.file_path, 3600); // 1 hour expiry
 
-    // For security, ensure the path doesn't contain ".." or start with "/"
-    if (normalizedPath.includes("..") || normalizedPath.startsWith("/")) {
-      return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
+    if (signedUrlError || !signedUrlData) {
+      console.error("Error creating signed URL:", signedUrlError);
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
-    // Get the base directory from environment or use home directory
-    const baseDir = process.env.JOBS_BASE_DIR || process.env.HOME || "";
-    const fullPath = join(baseDir, normalizedPath);
-
-    // Check if file exists
-    if (!existsSync(fullPath)) {
-      return NextResponse.json({ error: "File not found on disk" }, { status: 404 });
-    }
-
-    // Read the file
-    const fileBuffer = await readFile(fullPath);
-
-    // Determine content type based on file extension
-    const ext = document.file_name.split(".").pop()?.toLowerCase();
-    const contentTypeMap: Record<string, string> = {
-      pdf: "application/pdf",
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      png: "image/png",
-      gif: "image/gif",
-      doc: "application/msword",
-      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      xls: "application/vnd.ms-excel",
-      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      txt: "text/plain",
-    };
-    const contentType = contentTypeMap[ext || ""] || "application/octet-stream";
-
-    // Return the file with appropriate headers
-    return new NextResponse(fileBuffer, {
-      status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Content-Disposition": `inline; filename="${encodeURIComponent(document.file_name)}"`,
-        "Cache-Control": "private, max-age=3600",
-      },
-    });
+    // Redirect to the signed URL
+    return NextResponse.redirect(signedUrlData.signedUrl);
   } catch (error) {
     console.error("Error serving document:", error);
-    return NextResponse.json({ error: "Failed to read file" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to retrieve file" }, { status: 500 });
   }
 }

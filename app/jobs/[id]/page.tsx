@@ -50,6 +50,8 @@ export default function JobDetailPage() {
   const [addressInput, setAddressInput] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+  const [uploading, setUploading] = useState(false);
+  const [uploadFileType, setUploadFileType] = useState<string>("other");
 
   useEffect(() => {
     fetch(`/api/jobs/${id}`)
@@ -160,6 +162,45 @@ export default function JobDetailPage() {
       else next.add(item);
       return next;
     });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("job_id", id);
+    formData.append("file_type", uploadFileType);
+
+    try {
+      const res = await fetch("/api/documents", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const newDoc = await res.json();
+        setDocuments((prev) => [...prev, newDoc]);
+        // Refresh job to update flags
+        const jobRes = await fetch(`/api/jobs/${id}`);
+        if (jobRes.ok) {
+          const data = await jobRes.json();
+          setJob(data.job);
+        }
+      } else {
+        const error = await res.json();
+        alert(`Upload failed: ${error.error}`);
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert("Upload failed");
+    } finally {
+      setUploading(false);
+      // Reset file input
+      e.target.value = "";
+    }
   };
 
   if (loading) {
@@ -313,6 +354,35 @@ export default function JobDetailPage() {
                   {job[key] ? "✓ " : ""}{label}
                 </button>
               ))}
+            </div>
+
+            {/* Upload section */}
+            <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2">
+                <select
+                  value={uploadFileType}
+                  onChange={(e) => setUploadFileType(e.target.value)}
+                  className="text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="print">Print</option>
+                  <option value="proposal">Proposal</option>
+                  <option value="photo">Photo</option>
+                  <option value="work_order">Work Order</option>
+                  <option value="other">Other</option>
+                </select>
+                <label className="flex-1 cursor-pointer">
+                  <input
+                    type="file"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                    className="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                  />
+                  <div className="min-h-[36px] px-3 py-1.5 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors flex items-center justify-center text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+                    {uploading ? "Uploading..." : "+ Upload File"}
+                  </div>
+                </label>
+              </div>
             </div>
 
             {documents.length > 0 && (
