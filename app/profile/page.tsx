@@ -9,7 +9,6 @@ import type { Profile } from "@/lib/supabase";
 export default function ProfilePage() {
   const router = useRouter();
   const [email, setEmail] = useState<string>("");
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [companyName, setCompanyName] = useState("");
   const [trade, setTrade] = useState("General");
   const [saving, setSaving] = useState(false);
@@ -26,7 +25,6 @@ export default function ProfilePage() {
     fetch("/api/profile")
       .then(r => r.json())
       .then((p: Profile) => {
-        setProfile(p);
         setCompanyName(p.company_name ?? "");
         setTrade(p.trade ?? "General");
         setLoading(false);
