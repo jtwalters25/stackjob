@@ -54,6 +54,7 @@ export default function JobDetailPage() {
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [uploading, setUploading] = useState(false);
   const [uploadFileType, setUploadFileType] = useState<string>("other");
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/jobs/${id}`)
@@ -207,6 +208,36 @@ export default function JobDetailPage() {
       setUploading(false);
       // Reset file input
       e.target.value = "";
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    if (!confirm("Delete this document? This cannot be undone.")) return;
+
+    setDeletingDocId(docId);
+    try {
+      const res = await fetch(`/api/documents/${docId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        // Remove from local state
+        setDocuments((prev) => prev.filter((d) => d.id !== docId));
+        // Refresh job to update flags
+        const jobRes = await fetch(`/api/jobs/${id}`);
+        if (jobRes.ok) {
+          const data = await jobRes.json();
+          setJob(data.job);
+        }
+      } else {
+        const error = await res.json();
+        alert(`Delete failed: ${error.error}`);
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("Delete failed");
+    } finally {
+      setDeletingDocId(null);
     }
   };
 
