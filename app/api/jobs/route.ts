@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { Metrics } from "@/lib/metrics";
 
 export async function GET() {
   const supabase = createServerSupabase();
@@ -17,6 +18,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const startTime = performance.now();
   const supabase = createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -57,6 +59,15 @@ export async function POST(request: NextRequest) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    Metrics.performance.trackAPILatency("/api/jobs", "POST", performance.now() - startTime, 500);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Track successful job creation
+  const duration = performance.now() - startTime;
+  Metrics.business.trackJobCreation(jobTrade, role, duration);
+  Metrics.performance.trackAPILatency("/api/jobs", "POST", duration, 201);
+
   return NextResponse.json(data, { status: 201 });
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { parseFolderStructure, FileEntry } from "@/lib/claude";
+import { Metrics } from "@/lib/metrics";
 
 export async function POST(request: NextRequest) {
   const supabase = createServerSupabase();
@@ -23,7 +24,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     const tradeHint = profile?.trade ?? "General";
+
+    // Track AI parsing performance
+    const parseStart = performance.now();
     const parsed = await parseFolderStructure(files, tradeHint);
+    const parseDuration = performance.now() - parseStart;
+
+    const jobsFound = parsed.jobs?.length ?? 0;
+    Metrics.business.trackAIParsing(files.length, parseDuration, jobsFound, jobsFound > 0);
 
     if (!parsed.jobs || parsed.jobs.length === 0) {
       return NextResponse.json({ error: "No jobs found in folder structure" }, { status: 422 });
