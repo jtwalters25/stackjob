@@ -7,8 +7,6 @@ import StageSelect from "@/components/StageSelect";
 import WarningModal from "@/components/WarningModal";
 import {
   Job,
-  Document,
-  VoiceNote,
   JobStage,
   JobRole,
   TRADES,
@@ -17,6 +15,8 @@ import {
   getDocFlags,
   getCriticalDocs,
 } from "@/lib/supabase";
+import { useJob, useUpdateJob, useDeleteJob, useDeleteDocument, queryKeys } from "@/lib/queries";
+import { useQueryClient } from "@tanstack/react-query";
 
 const FILE_TYPE_LABELS: Record<string, string> = {
   print: "Print",
@@ -39,83 +39,60 @@ const card = "bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:b
 export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const [job, setJob] = useState<Job | null>(null);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [notes, setNotes] = useState<VoiceNote[]>([]);
-  const [checklist, setChecklist] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  // React Query hooks
+  const { data: jobData, isLoading: loading } = useJob(id);
+  const updateJobMutation = useUpdateJob(id);
+  const deleteJobMutation = useDeleteJob();
+  const deleteDocumentMutation = useDeleteDocument(id);
+
+  // Extract data from API response
+  const job = jobData?.job ?? null;
+  const documents = jobData?.documents ?? [];
+  const notes = jobData?.notes ?? [];
+  const checklist = jobData?.checklist ?? [];
+
   const [newNote, setNewNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [showNavWarning, setShowNavWarning] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressInput, setAddressInput] = useState("");
-  const [deleting, setDeleting] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [uploading, setUploading] = useState(false);
   const [uploadFileType, setUploadFileType] = useState<string>("other");
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
+  // Update addressInput when job data loads
   useEffect(() => {
-    fetch(`/api/jobs/${id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setJob(data.job);
-        setDocuments(data.documents ?? []);
-        setNotes(data.notes ?? []);
-        setChecklist(data.checklist ?? []);
-        setAddressInput(data.job?.address ?? "");
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [id]);
-
-  const updateJob = async (patch: Partial<Job>) => {
-    const res = await fetch(`/api/jobs/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      setJob(updated);
+    if (job?.address) {
+      setAddressInput(job.address);
     }
+  }, [job?.address]);
+
+  const updateJob = (patch: Partial<Job>) => {
+    updateJobMutation.mutate(patch);
   };
 
-  const handleStageChange = async (stage: JobStage) => {
-    setJob((j) => (j ? { ...j, stage } : j));
-    await updateJob({ stage });
-    // Refresh checklist for new stage
-    const res = await fetch(`/api/jobs/${id}`);
-    if (res.ok) {
-      const data = await res.json();
-      setChecklist(data.checklist ?? []);
-      setCheckedItems(new Set()); // reset checks on stage change
-    }
+  const handleStageChange = (stage: JobStage) => {
+    updateJob({ stage });
+    setCheckedItems(new Set()); // reset checks on stage change
   };
 
-  const handleTradeChange = async (trade: string) => {
-    setJob((j) => (j ? { ...j, trade } : j));
-    await updateJob({ trade });
-    const res = await fetch(`/api/jobs/${id}`);
-    if (res.ok) {
-      const data = await res.json();
-      setChecklist(data.checklist ?? []);
-    }
+  const handleTradeChange = (trade: string) => {
+    updateJob({ trade });
   };
 
   const handleJobTypeChange = (job_type: string) => {
-    setJob((j) => (j ? { ...j, job_type } : j));
     updateJob({ job_type });
   };
 
   const handleRoleChange = (role: JobRole) => {
-    setJob((j) => (j ? { ...j, role } : j));
     updateJob({ role });
   };
 
-  const handleSaveAddress = async () => {
-    await updateJob({ address: addressInput || null });
+  const handleSaveAddress = () => {
+    updateJob({ address: addressInput || null });
     setEditingAddress(false);
   };
 
@@ -128,8 +105,8 @@ export default function JobDetailPage() {
       body: JSON.stringify({ job_id: id, content: newNote.trim() }),
     });
     if (res.ok) {
-      const note = await res.json();
-      setNotes((prev) => [note, ...prev]);
+      // Refetch job data to get updated notes
+      queryClient.invalidateQueries({ queryKey: queryKeys.job(id) });
       setNewNote("");
     }
     setSavingNote(false);
@@ -158,8 +135,7 @@ export default function JobDetailPage() {
 
   const handleDelete = async () => {
     if (!confirm("Delete this job? This cannot be undone.")) return;
-    setDeleting(true);
-    await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+    await deleteJobMutation.mutateAsync(id);
     router.push("/");
   };
 
@@ -189,14 +165,9 @@ export default function JobDetailPage() {
       });
 
       if (res.ok) {
-        const newDoc = await res.json();
-        setDocuments((prev) => [...prev, newDoc]);
-        // Refresh job to update flags
-        const jobRes = await fetch(`/api/jobs/${id}`);
-        if (jobRes.ok) {
-          const data = await jobRes.json();
-          setJob(data.job);
-        }
+        // React Query will auto-refetch via invalidation in the mutation
+        // Just show success - the cache will update automatically
+        e.target.value = ""; // Reset file input
       } else {
         const error = await res.json();
         alert(`Upload failed: ${error.error}`);
@@ -206,8 +177,6 @@ export default function JobDetailPage() {
       alert("Upload failed");
     } finally {
       setUploading(false);
-      // Reset file input
-      e.target.value = "";
     }
   };
 
@@ -216,23 +185,8 @@ export default function JobDetailPage() {
 
     setDeletingDocId(docId);
     try {
-      const res = await fetch(`/api/documents/${docId}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        // Remove from local state
-        setDocuments((prev) => prev.filter((d) => d.id !== docId));
-        // Refresh job to update flags
-        const jobRes = await fetch(`/api/jobs/${id}`);
-        if (jobRes.ok) {
-          const data = await jobRes.json();
-          setJob(data.job);
-        }
-      } else {
-        const error = await res.json();
-        alert(`Delete failed: ${error.error}`);
-      }
+      await deleteDocumentMutation.mutateAsync(docId);
+      // React Query will auto-refetch job data
     } catch (error) {
       console.error("Delete error:", error);
       alert("Delete failed");
@@ -479,10 +433,10 @@ export default function JobDetailPage() {
             <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Danger Zone</h2>
             <button
               onClick={handleDelete}
-              disabled={deleting}
+              disabled={deleteJobMutation.isPending}
               className="w-full min-h-[44px] border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 font-medium rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50 text-sm"
             >
-              {deleting ? "Deleting..." : "Delete Job"}
+              {deleteJobMutation.isPending ? "Deleting..." : "Delete Job"}
             </button>
           </div>
         </div>

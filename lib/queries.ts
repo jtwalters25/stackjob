@@ -1,5 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Job, Document as JobDocument } from "./supabase";
+import type { Job, Document as JobDocument, VoiceNote } from "./supabase";
+
+// API Response Types
+export interface JobDetailResponse {
+  job: Job;
+  documents: JobDocument[];
+  notes: VoiceNote[];
+  checklist: string[];
+}
 
 // Query Keys - centralized for cache invalidation
 export const queryKeys = {
@@ -26,7 +34,7 @@ export function useJobs() {
   });
 }
 
-async function fetchJob(id: string): Promise<Job> {
+async function fetchJob(id: string): Promise<JobDetailResponse> {
   const res = await fetch(`/api/jobs/${id}`);
   if (!res.ok) throw new Error("Failed to fetch job");
   return res.json();

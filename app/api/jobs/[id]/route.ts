@@ -50,7 +50,7 @@ export async function PATCH(
 
   const ALLOWED_FIELDS = [
     "stage", "job_type", "trade", "customer_name", "building_name",
-    "address", "notes", "has_prints", "has_proposal", "has_parts_list", "has_permit",
+    "address", "notes", "role", "has_prints", "has_proposal", "has_parts_list", "has_permit",
   ];
   const updates = Object.fromEntries(
     Object.entries(body).filter(([key]) => ALLOWED_FIELDS.includes(key))

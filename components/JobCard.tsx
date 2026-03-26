@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import { Job, JobStage, getCriticalDocs, getDocFlags } from "@/lib/supabase";
 import { STAGE_COLORS } from "./StageSelect";
@@ -8,7 +9,7 @@ interface JobCardProps {
   job: Job;
 }
 
-export default function JobCard({ job }: JobCardProps) {
+function JobCardComponent({ job }: JobCardProps) {
   const criticalKeys = getCriticalDocs(job.trade ?? "General");
   const missingDocs = criticalKeys
     .filter((key) => !job[key])
@@ -68,3 +69,16 @@ export default function JobCard({ job }: JobCardProps) {
     </Link>
   );
 }
+
+// Memoize to prevent unnecessary re-renders
+// Only re-render if job.id or job.updated_at changes
+const JobCard = memo(JobCardComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.job.id === nextProps.job.id &&
+    prevProps.job.updated_at === nextProps.job.updated_at
+  );
+});
+
+JobCard.displayName = "JobCard";
+
+export default JobCard;
