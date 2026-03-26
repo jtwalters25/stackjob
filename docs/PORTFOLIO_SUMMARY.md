@@ -181,7 +181,58 @@ export async function parseFolderStructure(
 
 ---
 
-### 7. Comprehensive Testing Strategy
+### 7. QuickBooks OAuth Integration
+
+**Full OAuth 2.0 Implementation:**
+- Complete authorization flow with token management
+- Automatic token refresh for expired credentials
+- Secure token storage with RLS policies
+- CSRF protection with state parameter
+
+**Sync Functionality:**
+```typescript
+// app/api/quickbooks/sync/route.ts
+- Auto-creates customers if they don't exist
+- Syncs jobs to QB as invoices
+- Tracks sync status (pending/processing/completed/failed)
+- Comprehensive error logging for troubleshooting
+```
+
+**Database Schema:**
+```sql
+-- quickbooks_connections: OAuth tokens per user
+-- sync_jobs: Track invoice/customer sync operations
+-- sync_logs: Detailed logs for monitoring
+```
+
+**API Endpoints:**
+- `GET /api/quickbooks/connect` - Initiates OAuth flow
+- `GET /api/quickbooks/callback` - Handles OAuth callback
+- `POST /api/quickbooks/sync` - Syncs job to QuickBooks
+- `POST /api/quickbooks/disconnect` - Revokes access
+- `GET /api/quickbooks/status` - Connection status
+
+**Features Implemented:**
+- ✅ OAuth 2.0 with automatic token refresh
+- ✅ Customer auto-creation in QuickBooks
+- ✅ Invoice creation from job data
+- ✅ Sync job tracking with retry count
+- ✅ Detailed logging for troubleshooting
+- ✅ Row-level security on all tables
+- ✅ Type-safe client library
+
+**Interview talking points:**
+- OAuth implementation with PKCE security
+- Token refresh strategy and error handling
+- Database schema for sync job tracking
+- Retry logic with exponential backoff (architecture documented)
+- Rate limiting strategy for QB API (500 req/min limit)
+- How you'd add webhooks for real-time updates
+- Background job queue for async processing at scale
+
+---
+
+### 8. Comprehensive Testing Strategy
 
 **Testing Pyramid:**
 ```
@@ -236,7 +287,7 @@ test('user can create a new job', async ({ page }) => {
 
 ---
 
-### 8. Progressive Web App (PWA)
+### 9. Progressive Web App (PWA)
 
 **PWA Features:**
 - ✅ **Installable** - Add to home screen, desktop installation
@@ -398,18 +449,24 @@ If you were asked "What would you add next?":
    - ✅ Code splitting and lazy loading
    - Next: Add background sync for offline changes
 
-3. **Advanced Performance**
+3. **~~QuickBooks Integration~~** ✅ **COMPLETED**
+   - ✅ OAuth 2.0 with automatic token refresh
+   - ✅ Sync jobs to QuickBooks as invoices
+   - ✅ Auto-create customers
+   - ✅ Comprehensive error logging
+   - Next: Add webhooks for real-time updates, background job queue
+
+4. **Advanced Performance**
    - Virtual scrolling for large job lists (1000+ items)
    - Image optimization (next/image for document previews)
    - Prefetching on hover for instant navigation
 
-4. **Scalability**
-   - Background job queue for AI parsing
+5. **Scalability**
+   - Background job queue for sync operations
    - Redis caching layer
    - Database read replicas
 
-4. **Features**
-   - QuickBooks integration (detailed architecture in docs)
+6. **Additional Features**
    - Mobile app (React Native)
    - Real-time collaboration (WebSockets)
 
@@ -418,15 +475,16 @@ If you were asked "What would you add next?":
 ## 💼 For Your Resume
 
 **StackJob - Trade Job Management Platform**
-*Tech: Next.js 14, React Query, TypeScript, Supabase, Sentry, Vitest, Playwright, PWA*
+*Tech: Next.js 14, React Query, TypeScript, Supabase, Sentry, Vitest, Playwright, PWA, QuickBooks API*
 
 - Engineered performance optimizations reducing API calls by 90% and database query latency by 10x using React Query caching and strategic database indexing
+- Implemented complete OAuth 2.0 integration with QuickBooks Online API including automatic token refresh, customer/invoice sync, and comprehensive error handling
 - Built Progressive Web App with offline support, installability, and service worker caching for field workers with poor connectivity
 - Implemented comprehensive observability with Sentry error tracking, Vercel analytics, and custom business metrics for production monitoring
 - Developed comprehensive testing suite with 29 passing tests using Vitest for unit tests, React Testing Library for components, and Playwright for E2E flows
 - Architected AI-powered folder parsing using Claude AI to extract structured job data from unorganized file systems
 - Built secure document management with Supabase Storage, RLS policies, and signed URL access controls
-- Designed scalable database schema with composite indexes optimized for multi-tenant query patterns
+- Designed scalable database schema with composite indexes optimized for multi-tenant query patterns and third-party sync tracking
 - Implemented code splitting and lazy loading to optimize production bundle size
 
 ---
@@ -448,9 +506,12 @@ If you were asked "What would you add next?":
 - `/docs/TESTING.md` - Comprehensive testing guide (Vitest, Playwright, React Testing Library)
 - `/docs/PWA_PERFORMANCE.md` - PWA configuration and performance optimizations
 - `/docs/QUICKBOOKS_ARCHITECTURE.md` - System design for third-party integration
+- `/docs/QUICKBOOKS_IMPLEMENTATION.md` - ✅ **NEW: Complete OAuth implementation guide**
+- `/supabase/migrations/add_quickbooks_tables.sql` - ✅ **NEW: QB database schema**
 - `/supabase/migrations/add_performance_indexes.sql` - Database optimization
 - `/lib/queries.ts` - React Query patterns
 - `/lib/metrics.ts` - Custom metrics implementation
+- `/lib/quickbooks.ts` - ✅ **NEW: Type-safe QuickBooks client**
 - `/public/manifest.json` - PWA manifest configuration
 
 ---
