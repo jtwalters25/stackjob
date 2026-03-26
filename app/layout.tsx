@@ -8,12 +8,29 @@ import { Providers } from "@/components/Providers";
 export const metadata: Metadata = {
   title: "StackJob - Trade Job Management",
   description: "Manage contractor jobs from import to completion. Works for any trade: Electrician, Plumber, HVAC, Roofing, and more.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "StackJob",
+  },
+  applicationName: "StackJob",
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  themeColor: "#2563eb",
 };
 
 export default function RootLayout({
