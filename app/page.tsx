@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import JobCard from "@/components/JobCard";
 import { Job, STAGE_GROUPS } from "@/lib/supabase";
+import { useJobs } from "@/lib/queries";
 import {
   DndContext,
   closestCenter,
@@ -25,9 +25,7 @@ import { SortableJobCard } from "@/components/SortableJobCard";
 type SortMode = "default" | "date-newest" | "date-oldest" | "manual";
 
 export default function HomePage() {
-  const router = useRouter();
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: jobs = [], isLoading: loading, refetch } = useJobs();
   const [search, setSearch] = useState("");
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("default");
@@ -61,16 +59,6 @@ export default function HomePage() {
     localStorage.setItem("jobSortMode", sortMode);
   }, [sortMode]);
 
-  useEffect(() => {
-    fetch("/api/jobs")
-      .then((r) => r.json())
-      .then((data) => {
-        setJobs(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
-
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -82,10 +70,10 @@ export default function HomePage() {
     setLoadingDemo(true);
     try {
       const res = await fetch("/api/demo", { method: "POST" });
-      if (res.ok) router.refresh();
-      // Reload jobs after seeding
-      const updated = await fetch("/api/jobs").then((r) => r.json());
-      setJobs(Array.isArray(updated) ? updated : []);
+      if (res.ok) {
+        // Refetch jobs from cache
+        await refetch();
+      }
     } finally {
       setLoadingDemo(false);
     }

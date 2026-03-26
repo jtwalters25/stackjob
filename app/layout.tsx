@@ -3,6 +3,7 @@ import "./globals.css";
 import Nav from "@/components/Nav";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "StackJob - Trade Job Management",
@@ -39,8 +40,10 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased min-h-screen bg-slate-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
-        <Nav />
-        <main>{children}</main>
+        <Providers>
+          <Nav />
+          <main>{children}</main>
+        </Providers>
         <Analytics />
         <SpeedInsights />
       </body>
